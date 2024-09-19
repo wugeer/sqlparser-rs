@@ -862,6 +862,7 @@ impl<'a> Parser<'a> {
         let index = self.index;
 
         let next_token = self.next_token();
+        println!("parse_wildcard_expr next token:{:?}", next_token);
         match next_token.token {
             t @ (Token::Word(_) | Token::SingleQuotedString(_)) => {
                 if self.peek_token().token == Token::Period {
@@ -897,11 +898,13 @@ impl<'a> Parser<'a> {
         };
 
         self.index = index;
+        println!("wildcard expr");
         self.parse_expr()
     }
 
     /// Parse a new expression.
     pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+        println!("parse expr this");
         self.parse_subexpr(self.dialect.prec_unknown())
     }
 
@@ -909,6 +912,7 @@ impl<'a> Parser<'a> {
     pub fn parse_subexpr(&mut self, precedence: u8) -> Result<Expr, ParserError> {
         let _guard = self.recursion_counter.try_decrease()?;
         debug!("parsing expr");
+        println!("in parse subexpr");
         let mut expr = self.parse_prefix()?;
         debug!("prefix: {:?}", expr);
         loop {
@@ -1752,6 +1756,7 @@ impl<'a> Parser<'a> {
             // PARSE SELECT POSITION('@' in field)
             p.expect_token(&Token::LParen)?;
 
+            println!("parse_position_expr ");
             // Parse the subexpr till the IN keyword
             let expr = p.parse_subexpr(between_prec)?;
             p.expect_keyword(Keyword::IN)?;
@@ -2085,6 +2090,7 @@ impl<'a> Parser<'a> {
         // to match the different flavours of INTERVAL syntax, we only allow expressions
         // if the dialect requires an interval qualifier,
         // see https://github.com/sqlparser-rs/sqlparser-rs/pull/1398 for more details
+        println!("in parse interval");
         let value = if self.dialect.require_interval_qualifier() {
             // parse a whole expression so `INTERVAL 1 + 1 DAY` is valid
             self.parse_expr()?
@@ -2617,6 +2623,7 @@ impl<'a> Parser<'a> {
             _ => None,
         };
 
+        println!("parse infix");
         if let Some(op) = regular_binary_operator {
             if let Some(keyword) = self.parse_one_of_keywords(&[Keyword::ANY, Keyword::ALL]) {
                 self.expect_token(&Token::LParen)?;
@@ -3432,7 +3439,6 @@ impl<'a> Parser<'a> {
         let mut values = vec![];
         loop {
             let res = f(self);
-            println!("fdsfsxxxx loop {:?}", res);
             values.push(res?);
             if self.is_parse_comma_separated_end() {
                 break;
@@ -10959,7 +10965,7 @@ println!("oook");
 
     /// Parse a comma-delimited list of projections after SELECT
     pub fn parse_select_item(&mut self) -> Result<SelectItem, ParserError> {
-        println!("ssss {:?}", self.parse_wildcard_expr());
+        println!("parse_select_item {:?}", self.parse_wildcard_expr());
         match self.parse_wildcard_expr()? {
             Expr::QualifiedWildcard(prefix) => Ok(SelectItem::QualifiedWildcard(
                 prefix,
