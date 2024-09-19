@@ -994,6 +994,7 @@ impl<'a> Parser<'a> {
         }
 
         let next_token = self.next_token();
+        println!("next token is {:?}", next_token);
         let expr = match next_token.token {
             Token::Word(w) => match w.keyword {
                 Keyword::TRUE | Keyword::FALSE | Keyword::NULL => {
@@ -3366,7 +3367,7 @@ impl<'a> Parser<'a> {
 
         self.options.trailing_commas |= self.dialect.supports_projection_trailing_commas();
         println!("hhhh11");
-        println!("a ub {:?}", self.next_token());
+        // println!("a ub {:?}", self.next_token());
 
         
         let ret = self.parse_comma_separated(|p| p.parse_select_item());
@@ -3430,13 +3431,14 @@ impl<'a> Parser<'a> {
     {
         let mut values = vec![];
         loop {
-            println!("fdsfsxxxx");
-            
-            values.push(f(self)?);
+            let res = f(self);
+            println!("fdsfsxxxx loop {:?}", res);
+            values.push(res?);
             if self.is_parse_comma_separated_end() {
                 break;
             }
         }
+        println!("fdsfsxxxx out");
         Ok(values)
     }
 
