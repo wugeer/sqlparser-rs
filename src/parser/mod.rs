@@ -994,6 +994,7 @@ impl<'a> Parser<'a> {
         }
 
         let next_token = self.next_token();
+        debug!("next_token.token={:?}", next_token.token);
         let expr = match next_token.token {
             Token::Word(w) => match w.keyword {
                 Keyword::TRUE | Keyword::FALSE | Keyword::NULL => {
@@ -1073,7 +1074,11 @@ impl<'a> Parser<'a> {
                         within_group: vec![],
                     }))
                 }
-                Keyword::NOT => self.parse_not(),
+                Keyword::NOT => {
+                    debug!("run in thisa");
+                    self.parse_not()
+                },
+
                 Keyword::MATCH if dialect_of!(self is MySqlDialect | GenericDialect) => {
                     self.parse_match_against()
                 }
@@ -1175,6 +1180,10 @@ impl<'a> Parser<'a> {
                     ),
                 })
             }
+            Token::ExclamationMark => {
+                debug!("run in thisa ExclamationMark");
+                self.parse_not()
+            }
             tok @ Token::DoubleExclamationMark
             | tok @ Token::PGSquareRoot
             | tok @ Token::PGCubeRoot
@@ -1266,7 +1275,9 @@ impl<'a> Parser<'a> {
                 self.prev_token();
                 self.parse_duckdb_struct_literal()
             }
-            _ => self.expected("an expression", next_token),
+            _ => {
+                self.expected("an expression", next_token)
+            },
         }?;
 
         if self.parse_keyword(Keyword::COLLATE) {
@@ -2794,10 +2805,15 @@ impl<'a> Parser<'a> {
                 data_type: self.parse_data_type()?,
                 format: None,
             })
-        } else if Token::ExclamationMark == tok {
+        } else if Token::ExclamationMark == tok{
             // PostgreSQL factorial operation
+            let op = if dialect_of!(self is HiveDialect) {
+                UnaryOperator::HiveNot
+            } else {
+                UnaryOperator::PGPostfixFactorial
+            };
             Ok(Expr::UnaryOp {
-                op: UnaryOperator::PGPostfixFactorial,
+                op,
                 expr: Box::new(expr),
             })
         } else if Token::LBracket == tok {
