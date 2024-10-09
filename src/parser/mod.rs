@@ -909,6 +909,7 @@ impl<'a> Parser<'a> {
         let _guard = self.recursion_counter.try_decrease()?;
         debug!("parsing expr");
         let mut expr = self.parse_prefix()?;
+        debug!("test hhhh");
         debug!("prefix: {:?}", expr);
         loop {
             let next_precedence = self.get_next_precedence()?;
@@ -2012,6 +2013,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_not(&mut self) -> Result<Expr, ParserError> {
+        debug!("parse not herere");
         match self.peek_token().token {
             Token::Word(w) => match w.keyword {
                 Keyword::EXISTS => {

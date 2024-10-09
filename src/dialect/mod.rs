@@ -751,6 +751,7 @@ mod tests {
                 &self,
                 parser: &mut sqlparser::parser::Parser,
             ) -> Option<Result<Expr, sqlparser::parser::ParserError>> {
+                debug!("parse this ");
                 self.0.parse_prefix(parser)
             }
 
