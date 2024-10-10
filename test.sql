@@ -1,1 +1,1 @@
-select 1 from test.tbl_a where !(age > 23)
+select !(false), 9!, not (a > 9)

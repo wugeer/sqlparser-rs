@@ -188,6 +188,10 @@ impl Dialect for PostgreSqlDialect {
     fn supports_explain_with_utility_options(&self) -> bool {
         true
     }
+
+    fn supports_factorial_operator(&self,) -> bool{
+        true
+    }
 }
 
 pub fn parse_comment(parser: &mut Parser) -> Result<Statement, ParserError> {

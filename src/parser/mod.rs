@@ -909,7 +909,6 @@ impl<'a> Parser<'a> {
         let _guard = self.recursion_counter.try_decrease()?;
         debug!("parsing expr");
         let mut expr = self.parse_prefix()?;
-        debug!("test hhhh");
         debug!("prefix: {:?}", expr);
         loop {
             let next_precedence = self.get_next_precedence()?;
@@ -1180,9 +1179,8 @@ impl<'a> Parser<'a> {
                     ),
                 })
             }
-            Token::ExclamationMark => {
-                debug!("run in thisa ExclamationMark");
-                self.parse_not()
+            Token::ExclamationMark  if dialect_of!(self is HiveDialect)=> {
+                self.parse_hive_not()
             }
             tok @ Token::DoubleExclamationMark
             | tok @ Token::PGSquareRoot
@@ -1276,10 +1274,11 @@ impl<'a> Parser<'a> {
                 self.parse_duckdb_struct_literal()
             }
             _ => {
+                debug!("raise exception here");
                 self.expected("an expression", next_token)
             },
         }?;
-
+        debug!("go to this");
         if self.parse_keyword(Keyword::COLLATE) {
             Ok(Expr::Collate {
                 expr: Box::new(expr),
@@ -2046,6 +2045,33 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn parse_hive_not(&mut self) -> Result<Expr, ParserError> {
+        // self.prev_token();
+        match self.peek_token().token {
+            Token::Word(w) => match w.keyword {
+                Keyword::EXISTS => {
+                    let negated = true;
+                    let _ = self.parse_keyword(Keyword::EXISTS);
+                    self.parse_exists_expr(negated)
+                }
+                _ => Ok(Expr::UnaryOp {
+                    op: UnaryOperator::HiveNot,
+                    expr: Box::new(
+                        self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?,
+                    ),
+                }),
+            },
+            _ => Ok(Expr::UnaryOp {
+                op: UnaryOperator::HiveNot,
+                expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
+            }),
+        }
+            // Ok(Expr::UnaryOp {
+            //     op: UnaryOperator::HiveNot,
+            //     expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
+            // })
+    }
+
     /// Parses fulltext expressions [`sqlparser::ast::Expr::MatchAgainst`]
     ///
     /// # Errors
@@ -2560,6 +2586,7 @@ impl<'a> Parser<'a> {
         }
 
         let mut tok = self.next_token();
+        debug!("parse infix:{:?}", tok.token);
         let regular_binary_operator = match &mut tok.token {
             Token::Spaceship => Some(BinaryOperator::Spaceship),
             Token::DoubleEq => Some(BinaryOperator::Eq),
@@ -2807,6 +2834,12 @@ impl<'a> Parser<'a> {
             })
         } else if Token::ExclamationMark == tok{
             // PostgreSQL factorial operation
+            debug!("expr={:?} dialect={:?}", expr, self.dialect);
+            if let Expr::Value(Value::Number(ref _a, _b)) = expr {
+                if ! self.dialect.supports_factorial_operator() {
+                    return self.expected("dialect support factorial operator", tok);
+                }
+            }
             let op = if dialect_of!(self is HiveDialect) {
                 UnaryOperator::HiveNot
             } else {
