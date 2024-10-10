@@ -909,6 +909,7 @@ impl<'a> Parser<'a> {
         let _guard = self.recursion_counter.try_decrease()?;
         debug!("parsing expr");
         let mut expr = self.parse_prefix()?;
+        debug!("test hhhh");
         debug!("prefix: {:?}", expr);
         loop {
             let next_precedence = self.get_next_precedence()?;
@@ -993,6 +994,7 @@ impl<'a> Parser<'a> {
         }
 
         let next_token = self.next_token();
+        debug!("next_token.token={:?}", next_token.token);
         let expr = match next_token.token {
             Token::Word(w) => match w.keyword {
                 Keyword::TRUE | Keyword::FALSE | Keyword::NULL => {
@@ -1072,7 +1074,11 @@ impl<'a> Parser<'a> {
                         within_group: vec![],
                     }))
                 }
-                Keyword::NOT => self.parse_not(),
+                Keyword::NOT => {
+                    debug!("run in thisa");
+                    self.parse_not()
+                },
+
                 Keyword::MATCH if dialect_of!(self is MySqlDialect | GenericDialect) => {
                     self.parse_match_against()
                 }
@@ -1174,6 +1180,9 @@ impl<'a> Parser<'a> {
                     ),
                 })
             }
+            Token::ExclamationMark  if dialect_of!(self is HiveDialect)=> {
+                self.parse_hive_not()
+            }
             tok @ Token::DoubleExclamationMark
             | tok @ Token::PGSquareRoot
             | tok @ Token::PGCubeRoot
@@ -1265,7 +1274,9 @@ impl<'a> Parser<'a> {
                 self.prev_token();
                 self.parse_duckdb_struct_literal()
             }
-            _ => self.expected("an expression", next_token),
+            _ => {
+                self.expected("an expression", next_token)
+            },
         }?;
 
         if self.parse_keyword(Keyword::COLLATE) {
@@ -2012,6 +2023,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_not(&mut self) -> Result<Expr, ParserError> {
+        debug!("parse not herere");
         match self.peek_token().token {
             Token::Word(w) => match w.keyword {
                 Keyword::EXISTS => {
@@ -2031,6 +2043,33 @@ impl<'a> Parser<'a> {
                 expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
             }),
         }
+    }
+
+    pub fn parse_hive_not(&mut self) -> Result<Expr, ParserError> {
+        // self.prev_token();
+        match self.peek_token().token {
+            Token::Word(w) => match w.keyword {
+                Keyword::EXISTS => {
+                    let negated = true;
+                    let _ = self.parse_keyword(Keyword::EXISTS);
+                    self.parse_exists_expr(negated)
+                }
+                _ => Ok(Expr::UnaryOp {
+                    op: UnaryOperator::HiveNot,
+                    expr: Box::new(
+                        self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?,
+                    ),
+                }),
+            },
+            _ => Ok(Expr::UnaryOp {
+                op: UnaryOperator::HiveNot,
+                expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
+            }),
+        }
+            // Ok(Expr::UnaryOp {
+            //     op: UnaryOperator::HiveNot,
+            //     expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
+            // })
     }
 
     /// Parses fulltext expressions [`sqlparser::ast::Expr::MatchAgainst`]
@@ -2792,10 +2831,15 @@ impl<'a> Parser<'a> {
                 data_type: self.parse_data_type()?,
                 format: None,
             })
-        } else if Token::ExclamationMark == tok {
+        } else if Token::ExclamationMark == tok{
             // PostgreSQL factorial operation
+            let op = if dialect_of!(self is HiveDialect) {
+                UnaryOperator::HiveNot
+            } else {
+                UnaryOperator::PGPostfixFactorial
+            };
             Ok(Expr::UnaryOp {
-                op: UnaryOperator::PGPostfixFactorial,
+                op,
                 expr: Box::new(expr),
             })
         } else if Token::LBracket == tok {
