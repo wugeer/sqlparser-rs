@@ -1180,7 +1180,7 @@ impl<'a> Parser<'a> {
                 })
             }
             Token::ExclamationMark  if dialect_of!(self is HiveDialect)=> {
-                self.parse_hive_not()
+                self.parse_special_not()
             }
             tok @ Token::DoubleExclamationMark
             | tok @ Token::PGSquareRoot
@@ -2045,31 +2045,31 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_hive_not(&mut self) -> Result<Expr, ParserError> {
+    pub fn parse_special_not(&mut self) -> Result<Expr, ParserError> {
         // self.prev_token();
-        match self.peek_token().token {
-            Token::Word(w) => match w.keyword {
-                Keyword::EXISTS => {
-                    let negated = true;
-                    let _ = self.parse_keyword(Keyword::EXISTS);
-                    self.parse_exists_expr(negated)
-                }
-                _ => Ok(Expr::UnaryOp {
-                    op: UnaryOperator::HiveNot,
-                    expr: Box::new(
-                        self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?,
-                    ),
-                }),
-            },
-            _ => Ok(Expr::UnaryOp {
-                op: UnaryOperator::HiveNot,
+        // match self.peek_token().token {
+        //     Token::Word(w) => match w.keyword {
+        //         Keyword::EXISTS => {
+        //             let negated = true;
+        //             let _ = self.parse_keyword(Keyword::EXISTS);
+        //             self.parse_exists_expr(negated)
+        //         }
+        //         _ => Ok(Expr::UnaryOp {
+        //             op: UnaryOperator::SpecialNot,
+        //             expr: Box::new(
+        //                 self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?,
+        //             ),
+        //         }),
+        //     },
+        //     _ => Ok(Expr::UnaryOp {
+        //         op: UnaryOperator::SpecialNot,
+        //         expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
+        //     }),
+        // }
+            Ok(Expr::UnaryOp {
+                op: UnaryOperator::SpecialNot,
                 expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
-            }),
-        }
-            // Ok(Expr::UnaryOp {
-            //     op: UnaryOperator::HiveNot,
-            //     expr: Box::new(self.parse_subexpr(self.dialect.prec_value(Precedence::UnaryNot))?),
-            // })
+            })
     }
 
     /// Parses fulltext expressions [`sqlparser::ast::Expr::MatchAgainst`]
@@ -2841,7 +2841,7 @@ impl<'a> Parser<'a> {
                 }
             }
             let op = if dialect_of!(self is HiveDialect) {
-                UnaryOperator::HiveNot
+                UnaryOperator::SpecialNot
             } else {
                 UnaryOperator::PGPostfixFactorial
             };
