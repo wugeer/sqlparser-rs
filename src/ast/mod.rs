@@ -2448,6 +2448,20 @@ pub enum Statement {
     /// ```
     CreateIndex(CreateIndex),
     /// ```sql
+    ///     CREATE TABLESPACE tablespace_name
+    ///     [ OWNER { new_owner | CURRENT_ROLE | CURRENT_USER | SESSION_USER } ]
+    ///     LOCATION 'directory'
+    ///     [ WITH ( tablespace_option = value [, ... ] ) ]   
+    /// ```
+    /// See [postgres](https://www.postgresql.org/docs/current/sql-createtablespace.html
+    CreateTableSpace {
+        #[cfg_attr(feature = "visitor", visit(with = "visit_relation"))]
+        name: ObjectName,
+        owner: Option<ObjectName>,
+        location: String,
+        options: Option<Vec<SqlOption>>,
+    },
+    /// ```sql
     /// CREATE ROLE
     /// ```
     /// See [postgres](https://www.postgresql.org/docs/current/sql-createrole.html)
@@ -3975,6 +3989,22 @@ impl fmt::Display for Statement {
                 write!(f, " AS {query}")?;
                 if *with_no_schema_binding {
                     write!(f, " WITH NO SCHEMA BINDING")?;
+                }
+                Ok(())
+            }
+            Statement::CreateTableSpace {
+                name,
+                owner,
+                location,
+                options,
+            } => {
+                write!(f, "CREATE TABLESPACE {name}")?;
+                if let Some(owner) = owner {
+                    write!(f, " OWNER {}", owner)?;
+                }
+                write!(f, " LOCATION '{location}'")?;
+                if let Some(options) = options {
+                    write!(f, " WITH ({})", display_comma_separated(options))?;
                 }
                 Ok(())
             }

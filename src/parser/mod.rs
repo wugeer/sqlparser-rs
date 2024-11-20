@@ -3764,6 +3764,8 @@ impl<'a> Parser<'a> {
             self.parse_create_type()
         } else if self.parse_keyword(Keyword::PROCEDURE) {
             self.parse_create_procedure(or_alter)
+        } else if self.parse_keyword(Keyword::TABLESPACE) {
+            self.parse_create_table_space()
         } else {
             self.expected("an object type after CREATE", self.peek_token())
         }
@@ -5016,6 +5018,39 @@ impl<'a> Parser<'a> {
             to,
             using,
             with_check,
+        })
+    }
+
+    /// ```sql
+    ///     CREATE TABLESPACE tablespace_name
+    ///     [ OWNER { new_owner | CURRENT_ROLE | CURRENT_USER | SESSION_USER } ]
+    ///     LOCATION 'directory'
+    ///     [ WITH ( tablespace_option = value [, ... ] ) ]
+    /// ```
+    ///
+    /// [PostgreSQL Documentation](https://www.postgresql.org/docs/current/sql-createtablespace.html)
+    pub fn parse_create_table_space(&mut self) -> Result<Statement, ParserError> {
+        let name = self.parse_object_name(false)?;
+
+        let owner = if self.parse_keyword(Keyword::OWNER) {
+            Some(self.parse_object_name(false)?)
+        } else {
+            None
+        };
+
+        self.expect_keyword(Keyword::LOCATION)?;
+        let location = self.parse_literal_string()?;
+
+        let options = self
+            .parse_options(Keyword::WITH)
+            .ok()
+            .filter(|vec| !vec.is_empty());
+
+        Ok(Statement::CreateTableSpace {
+            name,
+            owner,
+            location,
+            options,
         })
     }
 
