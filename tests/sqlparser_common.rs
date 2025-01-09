@@ -11558,6 +11558,7 @@ fn test_extract_seconds_ok() {
             prewhere: None,
             selection: None,
             group_by: GroupByExpr::Expressions(vec![], vec![]),
+            grouping_sets: None,
             cluster_by: vec![],
             distribute_by: vec![],
             sort_by: vec![],
