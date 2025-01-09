@@ -50,4 +50,9 @@ impl Dialect for ClickHouseDialect {
     fn supports_limit_comma(&self) -> bool {
         true
     }
+
+    /// See <https://clickhouse.com/docs/en/sql-reference/statements/select/group-by#rollup-modifier>
+    fn supports_group_by_with_modifier(&self) -> bool {
+        true
+    }
 }
