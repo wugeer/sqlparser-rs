@@ -2368,7 +2368,7 @@ fn parse_select_grouping_sets() {
     let dialects = all_dialects_where(|d| d.supports_select_grouping_sets());
 
     let sql = "SELECT a, b, SUM(c) FROM tab1 GROUP BY a, b GROUPING SETS ((a, b), (a), (b), ())";
-    match dialects.verified_stmt(&sql) {
+    match dialects.verified_stmt(sql) {
         Statement::Query(query) => {
             let grouping_sets = &query.body.as_select().unwrap().grouping_sets;
             assert_eq!(
