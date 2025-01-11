@@ -444,6 +444,11 @@ pub trait Dialect: Debug + Any {
         false
     }
 
+    /// Does the dialect support MySQL-style `'user'@'host'` grantee syntax?
+    fn supports_user_host_grantee(&self) -> bool {
+        false
+    }
+
     /// Dialect-specific infix parser override
     ///
     /// This method is called to parse the next infix expression.
@@ -795,6 +800,22 @@ pub trait Dialect: Debug + Any {
     ///
     /// MySQL: <https://dev.mysql.com/doc/refman/8.4/en/insert.html>
     fn supports_insert_set(&self) -> bool {
+        false
+    }
+
+    /// Does the dialect support table function in insertion?
+    fn supports_insert_table_function(&self) -> bool {
+        false
+    }
+
+    /// Does the dialect support insert formats, e.g. `INSERT INTO ... FORMAT <format>`
+    fn supports_insert_format(&self) -> bool {
+        false
+    }
+
+    /// Returns true if this dialect supports `SET` statements without an explicit
+    /// assignment operator such as `=`. For example: `SET SHOWPLAN_XML ON`.
+    fn supports_set_stmt_without_operator(&self) -> bool {
         false
     }
 }

@@ -51,6 +51,22 @@ impl Dialect for ClickHouseDialect {
         true
     }
 
+    fn supports_insert_table_function(&self) -> bool {
+        true
+    }
+
+    fn supports_insert_format(&self) -> bool {
+        true
+    }
+
+    // ClickHouse uses this for some FORMAT expressions in `INSERT` context, e.g. when inserting
+    // with FORMAT JSONEachRow a raw JSON key-value expression is valid and expected.
+    //
+    // [ClickHouse formats](https://clickhouse.com/docs/en/interfaces/formats)
+    fn supports_dictionary_syntax(&self) -> bool {
+        true
+    }
+
     /// See <https://clickhouse.com/docs/en/sql-reference/statements/select/group-by#rollup-modifier>
     fn supports_group_by_with_modifier(&self) -> bool {
         true

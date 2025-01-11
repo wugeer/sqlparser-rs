@@ -143,4 +143,8 @@ impl Dialect for GenericDialect {
     fn supports_nested_comments(&self) -> bool {
         true
     }
+
+    fn supports_user_host_grantee(&self) -> bool {
+        true
+    }
 }

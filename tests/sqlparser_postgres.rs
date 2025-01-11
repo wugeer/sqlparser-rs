@@ -1726,7 +1726,7 @@ fn parse_prepare() {
     };
     match sub_stmt.as_ref() {
         Statement::Insert(Insert {
-            table_name,
+            table: table_name,
             columns,
             source: Some(source),
             ..
@@ -4174,7 +4174,7 @@ fn parse_truncate_with_options() {
             table: true,
             only: true,
             identity: Some(TruncateIdentityOption::Restart),
-            cascade: Some(TruncateCascadeOption::Cascade),
+            cascade: Some(CascadeOption::Cascade),
             on_cluster: None,
         },
         truncate
@@ -4206,7 +4206,7 @@ fn parse_truncate_with_table_list() {
             table: true,
             only: false,
             identity: Some(TruncateIdentityOption::Restart),
-            cascade: Some(TruncateCascadeOption::Cascade),
+            cascade: Some(CascadeOption::Cascade),
             on_cluster: None,
         },
         truncate
@@ -4384,11 +4384,11 @@ fn test_simple_postgres_insert_with_alias() {
             or: None,
             ignore: false,
             into: true,
-            table_name: ObjectName(vec![Ident {
+            table: TableObject::TableName(ObjectName(vec![Ident {
                 value: "test_tables".to_string(),
                 quote_style: None,
                 span: Span::empty(),
-            }]),
+            }])),
             table_alias: Some(Ident {
                 value: "test_table".to_string(),
                 quote_style: None,
@@ -4429,12 +4429,14 @@ fn test_simple_postgres_insert_with_alias() {
             assignments: vec![],
             partitioned: None,
             after_columns: vec![],
-            table: false,
+            has_table_keyword: false,
             on: None,
             returning: None,
             replace_into: false,
             priority: None,
-            insert_alias: None
+            insert_alias: None,
+            settings: None,
+            format_clause: None,
         })
     )
 }
@@ -4452,11 +4454,11 @@ fn test_simple_postgres_insert_with_alias() {
             or: None,
             ignore: false,
             into: true,
-            table_name: ObjectName(vec![Ident {
+            table: TableObject::TableName(ObjectName(vec![Ident {
                 value: "test_tables".to_string(),
                 quote_style: None,
                 span: Span::empty(),
-            }]),
+            }])),
             table_alias: Some(Ident {
                 value: "test_table".to_string(),
                 quote_style: None,
@@ -4500,12 +4502,14 @@ fn test_simple_postgres_insert_with_alias() {
             assignments: vec![],
             partitioned: None,
             after_columns: vec![],
-            table: false,
+            has_table_keyword: false,
             on: None,
             returning: None,
             replace_into: false,
             priority: None,
-            insert_alias: None
+            insert_alias: None,
+            settings: None,
+            format_clause: None,
         })
     )
 }
@@ -4522,11 +4526,11 @@ fn test_simple_insert_with_quoted_alias() {
             or: None,
             ignore: false,
             into: true,
-            table_name: ObjectName(vec![Ident {
+            table: TableObject::TableName(ObjectName(vec![Ident {
                 value: "test_tables".to_string(),
                 quote_style: None,
                 span: Span::empty(),
-            }]),
+            }])),
             table_alias: Some(Ident {
                 value: "Test_Table".to_string(),
                 quote_style: Some('"'),
@@ -4567,12 +4571,14 @@ fn test_simple_insert_with_quoted_alias() {
             assignments: vec![],
             partitioned: None,
             after_columns: vec![],
-            table: false,
+            has_table_keyword: false,
             on: None,
             returning: None,
             replace_into: false,
             priority: None,
             insert_alias: None,
+            settings: None,
+            format_clause: None,
         })
     )
 }

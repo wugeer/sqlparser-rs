@@ -96,7 +96,7 @@ fn parse_insert_values() {
     ) {
         match verified_stmt(sql) {
             Statement::Insert(Insert {
-                table_name,
+                table: table_name,
                 columns,
                 source: Some(source),
                 ..
@@ -149,7 +149,7 @@ fn parse_insert_default_values() {
             partitioned,
             returning,
             source,
-            table_name,
+            table: table_name,
             ..
         }) => {
             assert_eq!(columns, vec![]);
@@ -158,7 +158,10 @@ fn parse_insert_default_values() {
             assert_eq!(partitioned, None);
             assert_eq!(returning, None);
             assert_eq!(source, None);
-            assert_eq!(table_name, ObjectName(vec!["test_table".into()]));
+            assert_eq!(
+                table_name,
+                TableObject::TableName(ObjectName(vec!["test_table".into()]))
+            );
         }
         _ => unreachable!(),
     }
@@ -174,7 +177,7 @@ fn parse_insert_default_values() {
             partitioned,
             returning,
             source,
-            table_name,
+            table: table_name,
             ..
         }) => {
             assert_eq!(after_columns, vec![]);
@@ -183,7 +186,10 @@ fn parse_insert_default_values() {
             assert_eq!(partitioned, None);
             assert!(returning.is_some());
             assert_eq!(source, None);
-            assert_eq!(table_name, ObjectName(vec!["test_table".into()]));
+            assert_eq!(
+                table_name,
+                TableObject::TableName(ObjectName(vec!["test_table".into()]))
+            );
         }
         _ => unreachable!(),
     }
@@ -199,7 +205,7 @@ fn parse_insert_default_values() {
             partitioned,
             returning,
             source,
-            table_name,
+            table: table_name,
             ..
         }) => {
             assert_eq!(after_columns, vec![]);
@@ -208,7 +214,10 @@ fn parse_insert_default_values() {
             assert_eq!(partitioned, None);
             assert_eq!(returning, None);
             assert_eq!(source, None);
-            assert_eq!(table_name, ObjectName(vec!["test_table".into()]));
+            assert_eq!(
+                table_name,
+                TableObject::TableName(ObjectName(vec!["test_table".into()]))
+            );
         }
         _ => unreachable!(),
     }
@@ -4478,7 +4487,9 @@ fn parse_alter_table_constraints() {
 
 #[test]
 fn parse_alter_table_drop_column() {
+    check_one("DROP COLUMN IF EXISTS is_active");
     check_one("DROP COLUMN IF EXISTS is_active CASCADE");
+    check_one("DROP COLUMN IF EXISTS is_active RESTRICT");
     one_statement_parses_to(
         "ALTER TABLE tab DROP IF EXISTS is_active CASCADE",
         "ALTER TABLE tab DROP COLUMN IF EXISTS is_active CASCADE",
@@ -4493,11 +4504,15 @@ fn parse_alter_table_drop_column() {
             AlterTableOperation::DropColumn {
                 column_name,
                 if_exists,
-                cascade,
+                drop_behavior,
             } => {
                 assert_eq!("is_active", column_name.to_string());
                 assert!(if_exists);
-                assert!(cascade);
+                match drop_behavior {
+                    None => assert!(constraint_text.ends_with(" is_active")),
+                    Some(DropBehavior::Restrict) => assert!(constraint_text.ends_with(" RESTRICT")),
+                    Some(DropBehavior::Cascade) => assert!(constraint_text.ends_with(" CASCADE")),
+                }
             }
             _ => unreachable!(),
         }
@@ -4587,37 +4602,29 @@ fn parse_alter_table_alter_column_type() {
 
 #[test]
 fn parse_alter_table_drop_constraint() {
-    let alter_stmt = "ALTER TABLE tab";
-    match alter_table_op(verified_stmt(
-        "ALTER TABLE tab DROP CONSTRAINT constraint_name CASCADE",
-    )) {
-        AlterTableOperation::DropConstraint {
-            name: constr_name,
-            if_exists,
-            cascade,
-        } => {
-            assert_eq!("constraint_name", constr_name.to_string());
-            assert!(!if_exists);
-            assert!(cascade);
+    check_one("DROP CONSTRAINT IF EXISTS constraint_name");
+    check_one("DROP CONSTRAINT IF EXISTS constraint_name RESTRICT");
+    check_one("DROP CONSTRAINT IF EXISTS constraint_name CASCADE");
+    fn check_one(constraint_text: &str) {
+        match alter_table_op(verified_stmt(&format!("ALTER TABLE tab {constraint_text}"))) {
+            AlterTableOperation::DropConstraint {
+                name: constr_name,
+                if_exists,
+                drop_behavior,
+            } => {
+                assert_eq!("constraint_name", constr_name.to_string());
+                assert!(if_exists);
+                match drop_behavior {
+                    None => assert!(constraint_text.ends_with(" constraint_name")),
+                    Some(DropBehavior::Restrict) => assert!(constraint_text.ends_with(" RESTRICT")),
+                    Some(DropBehavior::Cascade) => assert!(constraint_text.ends_with(" CASCADE")),
+                }
+            }
+            _ => unreachable!(),
         }
-        _ => unreachable!(),
-    }
-    match alter_table_op(verified_stmt(
-        "ALTER TABLE tab DROP CONSTRAINT IF EXISTS constraint_name",
-    )) {
-        AlterTableOperation::DropConstraint {
-            name: constr_name,
-            if_exists,
-            cascade,
-        } => {
-            assert_eq!("constraint_name", constr_name.to_string());
-            assert!(if_exists);
-            assert!(!cascade);
-        }
-        _ => unreachable!(),
     }
 
-    let res = parse_sql_statements(&format!("{alter_stmt} DROP CONSTRAINT is_active TEXT"));
+    let res = parse_sql_statements("ALTER TABLE tab DROP CONSTRAINT is_active TEXT");
     assert_eq!(
         ParserError::ParserError("Expected: end of statement, found: TEXT".to_string()),
         res.unwrap_err()
@@ -6952,7 +6959,7 @@ fn parse_derived_tables() {
 }
 
 #[test]
-fn parse_union_except_intersect() {
+fn parse_union_except_intersect_minus() {
     // TODO: add assertions
     verified_stmt("SELECT 1 UNION SELECT 2");
     verified_stmt("SELECT 1 UNION ALL SELECT 2");
@@ -6960,6 +6967,9 @@ fn parse_union_except_intersect() {
     verified_stmt("SELECT 1 EXCEPT SELECT 2");
     verified_stmt("SELECT 1 EXCEPT ALL SELECT 2");
     verified_stmt("SELECT 1 EXCEPT DISTINCT SELECT 1");
+    verified_stmt("SELECT 1 MINUS SELECT 2");
+    verified_stmt("SELECT 1 MINUS ALL SELECT 2");
+    verified_stmt("SELECT 1 MINUS DISTINCT SELECT 1");
     verified_stmt("SELECT 1 INTERSECT SELECT 2");
     verified_stmt("SELECT 1 INTERSECT ALL SELECT 2");
     verified_stmt("SELECT 1 INTERSECT DISTINCT SELECT 1");
@@ -7284,6 +7294,7 @@ fn parse_create_view() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("myschema.myview", name.to_string());
             assert_eq!(Vec::<ViewColumnDef>::new(), columns);
@@ -7296,7 +7307,8 @@ fn parse_create_view() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(!temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -7344,6 +7356,7 @@ fn parse_create_view_with_columns() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("v", name.to_string());
             assert_eq!(
@@ -7366,7 +7379,8 @@ fn parse_create_view_with_columns() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(!temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -7389,6 +7403,7 @@ fn parse_create_view_temporary() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("myschema.myview", name.to_string());
             assert_eq!(Vec::<ViewColumnDef>::new(), columns);
@@ -7401,7 +7416,8 @@ fn parse_create_view_temporary() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -7424,6 +7440,7 @@ fn parse_create_or_replace_view() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("v", name.to_string());
             assert_eq!(columns, vec![]);
@@ -7436,7 +7453,8 @@ fn parse_create_or_replace_view() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(!temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -7463,6 +7481,7 @@ fn parse_create_or_replace_materialized_view() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("v", name.to_string());
             assert_eq!(columns, vec![]);
@@ -7475,7 +7494,8 @@ fn parse_create_or_replace_materialized_view() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(!temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -7498,6 +7518,7 @@ fn parse_create_materialized_view() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("myschema.myview", name.to_string());
             assert_eq!(Vec::<ViewColumnDef>::new(), columns);
@@ -7510,7 +7531,8 @@ fn parse_create_materialized_view() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(!temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -7533,6 +7555,7 @@ fn parse_create_materialized_view_with_cluster_by() {
             if_not_exists,
             temporary,
             to,
+            params,
         } => {
             assert_eq!("myschema.myview", name.to_string());
             assert_eq!(Vec::<ViewColumnDef>::new(), columns);
@@ -7545,7 +7568,8 @@ fn parse_create_materialized_view_with_cluster_by() {
             assert!(!late_binding);
             assert!(!if_not_exists);
             assert!(!temporary);
-            assert!(to.is_none())
+            assert!(to.is_none());
+            assert!(params.is_none());
         }
         _ => unreachable!(),
     }
@@ -8667,14 +8691,14 @@ fn parse_grant() {
 
 #[test]
 fn test_revoke() {
-    let sql = "REVOKE ALL PRIVILEGES ON users, auth FROM analyst CASCADE";
+    let sql = "REVOKE ALL PRIVILEGES ON users, auth FROM analyst";
     match verified_stmt(sql) {
         Statement::Revoke {
             privileges,
             objects: GrantObjects::Tables(tables),
             grantees,
-            cascade,
             granted_by,
+            cascade,
         } => {
             assert_eq!(
                 Privileges::All {
@@ -8684,7 +8708,33 @@ fn test_revoke() {
             );
             assert_eq_vec(&["users", "auth"], &tables);
             assert_eq_vec(&["analyst"], &grantees);
-            assert!(cascade);
+            assert_eq!(cascade, None);
+            assert_eq!(None, granted_by);
+        }
+        _ => unreachable!(),
+    }
+}
+
+#[test]
+fn test_revoke_with_cascade() {
+    let sql = "REVOKE ALL PRIVILEGES ON users, auth FROM analyst CASCADE";
+    match all_dialects_except(|d| d.is::<MySqlDialect>()).verified_stmt(sql) {
+        Statement::Revoke {
+            privileges,
+            objects: GrantObjects::Tables(tables),
+            grantees,
+            granted_by,
+            cascade,
+        } => {
+            assert_eq!(
+                Privileges::All {
+                    with_privileges_keyword: true
+                },
+                privileges
+            );
+            assert_eq_vec(&["users", "auth"], &tables);
+            assert_eq_vec(&["analyst"], &grantees);
+            assert_eq!(cascade, Some(CascadeOption::Cascade));
             assert_eq!(None, granted_by);
         }
         _ => unreachable!(),
